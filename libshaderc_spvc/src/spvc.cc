@@ -128,6 +128,8 @@ const spirv_cross::SmallVector<spirv_cross::Resource>* get_shader_resources(
       return &(resources.storage_buffers);
     case shaderc_spvc_shader_resource_storage_images:
       return &(resources.storage_images);
+    case shaderc_spvc_shader_resource_uniform_constants:
+      return &(resources.uniform_constants);
   }
 
   // Older gcc doesn't recognize that all of the possible cases are covered
@@ -317,6 +319,7 @@ shaderc_spvc_status get_location_info_impl(
       return shaderc_spvc_status_internal_error;
     }
     locations->id = resource.id;
+    locations->base_type_id = resource.base_type_id;
     if (compiler->get_decoration_bitset(resource.id)
             .get(spv::DecorationLocation)) {
       locations->location =
@@ -1090,6 +1093,28 @@ shaderc_spvc_status shaderc_spvc_get_binding_info(
   return shaderc_spvc_status_success;
 }
 
+
+shaderc_spvc_status shaderc_spvc_get_name(const shaderc_spvc_context_t context, uint32_t id, char* name, size_t name_len) {
+  CHECK_CONTEXT(context);
+  CHECK_CROSS_COMPILER(context, context->cross_compiler);
+  CHECK_OUT_PARAM(context, name, "name");
+
+  auto* compiler = context->cross_compiler.get();
+
+  std::string s = compiler->get_name(id);
+
+  if (s.size() > name_len - 1) {
+    shaderc_spvc::ErrorLog(context) << "name buffer isn't big enough";
+    return shaderc_spvc_status_invalid_out_param;
+  }
+
+  size_t length = s.copy(name, name_len);
+  name[length] = '\0';
+
+  return shaderc_spvc_status_success;
+}
+
+
 shaderc_spvc_status shaderc_spvc_get_input_stage_location_info(
     const shaderc_spvc_context_t context,
     shaderc_spvc_resource_location_info* locations, size_t* location_count) {
@@ -1160,6 +1185,26 @@ shaderc_spvc_status shaderc_spvc_get_output_stage_type_info(
   return shaderc_spvc_status_success;
 }
 
+/* TODO: get type info */
+shaderc_spvc_status shaderc_spvc_get_type_info(
+    const shaderc_spvc_context_t context, uint32_t id,
+    shaderc_spvc_type* spvc_type)
+{
+    CHECK_CONTEXT(context);
+    CHECK_CROSS_COMPILER(context, context->cross_compiler);
+    CHECK_OUT_PARAM(context, spvc_type, "spvc_type");
+
+    auto* compiler = context->cross_compiler.get();
+    spirv_cross::SPIRType type = compiler->get_type(id);
+
+    spvc_type->base_type = (shaderc_spvc_basetype)type.basetype;
+    spvc_type->width = type.width;
+    spvc_type->vecsize = type.vecsize;
+    spvc_type->columns = type.columns;
+
+    return shaderc_spvc_status_success;
+}
+
 shaderc_spvc_compilation_result_t shaderc_spvc_result_create() {
   return new (std::nothrow) shaderc_spvc_compilation_result;
 }
@@ -1192,6 +1237,6 @@ shaderc_spvc_status shaderc_spvc_result_get_binary_length(
   CHECK_RESULT(nullptr, result);
   CHECK_OUT_PARAM(nullptr, len, "len");
 
-  *len = result->binary_output.size();
+  *len = static_cast<uint32_t>(result->binary_output.size());
   return shaderc_spvc_status_success;
 }

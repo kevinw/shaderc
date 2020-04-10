@@ -27,6 +27,37 @@ extern "C" {
 #include "shaderc/status.h"
 #include "shaderc/visibility.h"
 
+typedef enum {
+  spvc_basetype_unknown,
+  spvc_basetype_void,
+  spvc_basetype_boolean,
+  spvc_basetype_sbyte,
+  spvc_basetype_ubyte,
+  spvc_basetype_short,
+  spvc_basetype_ushort,
+  spvc_basetype_int,
+  spvc_basetype_uint,
+  spvc_basetype_int64,
+  spvc_basetype_uint64,
+  spvc_basetype_atomic_counter,
+  spvc_basetype_half,
+  spvc_basetype_float,
+  spvc_basetype_double,
+  spvc_basetype_struct,
+  spvc_basetype_image,
+  spvc_basetype_sampled_image,
+  spvc_basetype_sampler,
+  spvc_basetype_acceleration_structure_nv,
+} shaderc_spvc_basetype;
+
+typedef struct {
+  shaderc_spvc_basetype base_type;
+  uint32_t width;
+  uint32_t vecsize;
+  uint32_t columns;
+  // TODO: how to mirror spirv_common.hpp's SmallVector<uint32_t> array?
+} shaderc_spvc_type;
+
 // SPIR-V decorations supported by spvc. This is not an exhaustive list of all
 // of the values in the spec, but more can be added if needed.
 typedef enum {
@@ -122,6 +153,7 @@ typedef enum {
   shaderc_spvc_shader_resource_separate_samplers,
   shaderc_spvc_shader_resource_storage_buffers,
   shaderc_spvc_shader_resource_storage_images,
+  shaderc_spvc_shader_resource_uniform_constants,
 } shaderc_spvc_shader_resource;
 
 typedef enum {
@@ -246,6 +278,7 @@ typedef struct {
 
 typedef struct {
   uint32_t id;
+  uint32_t base_type_id;
   bool has_location;
   uint32_t location;
 } shaderc_spvc_resource_location_info;
@@ -593,6 +626,13 @@ SHADERC_EXPORT shaderc_spvc_status shaderc_spvc_get_binding_info(
     const shaderc_spvc_context_t context, shaderc_spvc_shader_resource resource,
     shaderc_spvc_binding_type binding_type, shaderc_spvc_binding_info* bindings,
     size_t* binding_count);
+
+SHADERC_EXPORT shaderc_spvc_status shaderc_spvc_get_name(
+    const shaderc_spvc_context_t context, uint32_t id, char* name, size_t name_len);
+
+SHADERC_EXPORT shaderc_spvc_status shaderc_spvc_get_type_info(
+    const shaderc_spvc_context_t context, uint32_t id, 
+    shaderc_spvc_type* spvc_type);
 
 // Fetches the Location decoration information for the stage inputs.
 // If |locations| is null, then |location_count| is populated with the number of
